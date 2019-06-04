@@ -31,7 +31,7 @@ class BrainDQN:
 
 	def createQNetwork(self):
 
-		W_fc1 = self.weight_variable([self.sensor_dim,self.hidden1])
+		W_fc1 = self.weight_variable([self.SU_num,self.hidden1])
 		b_fc1 = self.bias_variable([self.hidden1])
 
 		W_fc2 = self.weight_variable([self.hidden1,self.hidden2])
@@ -43,7 +43,7 @@ class BrainDQN:
 		W_fc4 = self.weight_variable([self.hidden3,self.actions])
 		b_fc4 = self.bias_variable([self.actions])        
 
-		self.stateInput = tf.placeholder("float",[None,self.sensor_dim])
+		self.stateInput = tf.placeholder("float",[None,self.SU_num])
 
 		h_fc1 = tf.nn.relu(tf.matmul(self.stateInput,W_fc1) + b_fc1)
 		h_fc2 = tf.nn.relu(tf.matmul(h_fc1,W_fc2) + b_fc2)
