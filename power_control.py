@@ -3,7 +3,7 @@ import numpy as np
 import math
 
 class GameState:
-    def __init__(self,P_1,P_2,Noise,Sensor):
+    def __init__(self, P_1, P_2, Noise, PU_num, SU_num):
         
         self.P_1 = P_1
         self.P_2 = P_2
@@ -22,22 +22,68 @@ class GameState:
         self.lam = 0.1
         self.alpha = 0.5
 
-        self.num_sensor = Sensor
+        self.PN_dimension = 300
+        # self.PN_weight = 300
+
+        self.SN_diemension = 50
+
+        self.PT_position_x = self.PN_dimension/2
+        self.PT_position_y = self.PN_dimension/2
+        self.ST_position_x = random.randint(0, self.PN_dimension)
+        self.ST_position_y = random.randint(0, self.PN_dimension)
+
+        self.PU_num = PU_num
+        self.SU_num = SU_num
+
         self.noise = Noise
         
-        self.P,self.sigma = self.dis()
+        self.P_SS, self.P_SP ,self.sigma = self.dis()
         
     def dis(self):
-        d = [[random.uniform(100,300) for _ in range(self.num_sensor)] for _ in range(2)]
-        P = np.zeros((2,self.num_sensor))
-        for i in range(0,self.num_sensor):
-            P[0][i] = ((self.lam/(4*math.pi)/d[0][i])**2)
-            P[1][i] = ((self.lam/(4*math.pi)/d[1][i])**2)
-        sigma = np.zeros((self.num_sensor))
-        for i in range(0,self.num_sensor):
-            sigma[i] = ( P[0][i]*self.P_1[0]+P[1][i]*self.P_2[0] )/ self.noise
-        return P,sigma
-    
+        dis_SU = np.random.uniform(low=0, high=self.PN_dimension, size=(self.SU_num))
+        dis_PU = np.random.uniform(low=0, high=self.SN_diemension, size=(self.PU_num))
+        
+        ang_SU = np.random.uniform(low=0, high=360, size=(self.SU_num))
+        ang_PU = np.random.uniform(low=0, high=360, size=(self.PU_num))
+        
+        P_SS = np.zeros(shape=(self.SU_num, self.SU_num), dtype=float)
+        P_SP = np.zeros(shape=(self.SU_num, self.PU_num), dtype=float)
+
+        for i in range(self.SU_num):
+            for j in range(self.SU_num):
+                if i != j:
+                    P_SS[i][j] = (self.lam/(4*math.pi)/self.cal_dis(dis_SU, ang_SU,S_1=i, S_2=j))**2
+        for i in range(self.SU_num):
+            for j in range(self.PU_num):
+                P_SP[i][j] = (self.lam/(4*math.pi)
+                /self.cal_dis(dis_SU, ang_SU, dis_PU, ang_PU, S_1=i, P=j))**2 
+        
+        # sigma = np.zeros((self.num_sensor))
+        # for i in range(0,self.num_sensor):
+        #     sigma[i] = ( P[0][i]*self.P_1[0]+P[1][i]*self.P_2[0] )/ self.noise
+        sigma = 'not completed'
+        return P_SS, P_SP ,sigma
+
+    def cal_dis(self, dis_SU=None, ang_SU=None, dis_PU=None, ang_PU=None, S_1=None, S_2=None, P=None):
+        if S_1 != None and S_2 != None:
+            ang = abs(ang_SU[S_1]-ang_SU[S_2])
+            if ang > 180:
+                ang -= 180
+            if ang == 0:
+                return abs(dis_SU[S_1]-dis_SU[S_2])
+            elif ang == 180:
+                return dis_SU[S_1]+dis_SU[S_2]
+            return dis_SU[S_1]**2+dis_SU[S_2]**2-2*dis_SU[S_1]*dis_SU[S_2]*math.cos(ang)
+        
+        elif S_1 != None and P != None:
+            SU_x = self.ST_position_x+dis_SU[S_1]*math.cos(dis_SU[S_1])
+            SU_y = self.ST_position_x+dis_SU[S_1]*math.sin(dis_SU[S_1])
+
+            PU_x = self.PT_position_x+dis_PU[P]*math.cos(ang_PU[P])
+            PU_y = self.PT_position_x+dis_PU[P]*math.sin(ang_PU[P])
+
+            return math.sqrt(abs(SU_x-PU_x)**2 + abs(SU_y-PU_y)**2)
+            
     def ini(self):
         self.p_1 = self.P_1[random.randint(0,self.length_P_1-1)]
         self.p_2 = self.P_2[random.randint(0,self.length_P_2-1)]
@@ -77,11 +123,11 @@ class GameState:
         
         return observation,reward,terminal
     
-    def compute_observation(self,x,y):   # 
+    def compute_observation(self, x, y):   # 
         observation = np.zeros((self.num_sensor))
         for i in range(0,self.num_sensor):
             observation[i] = self.P[0][i] * x + self.P[1][i] * y + random.gauss(0,self.sigma[i])
-            if observation[i]<0:
+            if observation[i] < 0:
                 observation[i] =0
             observation[i] = observation[i]*(10**7)
         return observation

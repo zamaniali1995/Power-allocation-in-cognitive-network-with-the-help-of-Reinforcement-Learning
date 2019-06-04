@@ -13,13 +13,15 @@ BATCH_SIZE = 256
 
 class BrainDQN:
 
-	def __init__(self,actions,Sensor):
+	def __init__(self, actions, PU_num, SU_num):
         
 		self.replayMemory = deque()
 		self.timeStep = 0
 		self.epsilon = INITIAL_EPSILON
 		self.recording = EXPLORE
-		self.sensor_dim = Sensor
+		# self.sensor_dim = Sensor
+		self.PU_num = PU_num
+		self.SU_num = SU_num
 		self.actions = actions
 		self.hidden1 = 256
 		self.hidden2 = 256
@@ -117,7 +119,7 @@ class BrainDQN:
 
 		return action
     
-	def setInitState(self,observation):
+	def setInitState(self, observation):
 		self.currentState = observation
 
 	def weight_variable(self,shape):
