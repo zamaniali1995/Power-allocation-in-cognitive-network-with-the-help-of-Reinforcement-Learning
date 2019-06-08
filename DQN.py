@@ -4,11 +4,11 @@ import random
 from collections import deque 
 
 GAMMA = 0.8  
-OBSERVE = 300 
+OBSERVE = 900 
 EXPLORE = 100000 
 FINAL_EPSILON = 0.0 
 INITIAL_EPSILON = 0.8 
-REPLAY_MEMORY = 400 
+REPLAY_MEMORY = 1000 
 BATCH_SIZE = 256 
 
 class BrainDQN:
@@ -80,9 +80,11 @@ class BrainDQN:
 			})
 		return self.loss
 
-	def setPerception(self,nextObservation,action,reward):
+	def setPerception(self,nextObservation,action_index,reward):
 		loss = 0
 		newState = nextObservation
+		action = np.zeros(self.actions)
+		action[action_index] = 1
 		self.replayMemory.append((self.currentState,action,reward,newState))
 		if len(self.replayMemory) > REPLAY_MEMORY:
 			self.replayMemory.popleft()
@@ -97,27 +99,27 @@ class BrainDQN:
 
 	def getAction(self):
 		QValue = self.QValue.eval(feed_dict= {self.stateInput:[self.currentState]})
-		action = np.zeros(self.actions)
+		# action = np.zeros(self.actions)
 		if random.random() <= self.epsilon:
 			action_index = random.randrange(self.actions)
-			action[action_index] = 1
+			# action[action_index] = 1
 		else:
 			action_index = np.argmax(QValue)
-			action[action_index] = 1
+			# action[action_index] = 1
          
 		if self.epsilon > FINAL_EPSILON and self.timeStep > OBSERVE:
 			self.epsilon -= (INITIAL_EPSILON - FINAL_EPSILON)/EXPLORE
 			self.recording = self.recording-1
 
-		return action,self.recording
+		return action_index, self.recording
     
 	def getAction_test(self,observation):
 		QValue = self.QValue.eval(feed_dict= {self.stateInput:[observation]})
-		action = np.zeros(self.actions)
+		# action = np.zeros(self.actions)
 		action_index = np.argmax(QValue)
-		action[action_index] = 1
+		# action[action_index] = 1
 
-		return action
+		return action_index
     
 	def setInitState(self, observation):
 		self.currentState = observation
