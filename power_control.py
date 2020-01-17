@@ -13,8 +13,8 @@ class GameState:
         self.h_11 = 1;self.h_12 = 1
         self.h_21 = 1;self.h_22 = 1
         
-        self.ita_PU = 0.5
-        self.ita_SU = 0.1
+        self.ita_PU = 0.1
+        self.ita_SU = 0.08
         
         self.sigma_sq_1 = 0.01
         self.sigma_sq_2 = 0.01
@@ -23,8 +23,7 @@ class GameState:
         self.alpha = 0.5
 
         self.PN_dimension = 300
-        # self.PN_weight = 300
-
+        
         self.SN_diemension = 50
 
         self.PT_position_x = self.PN_dimension/2
@@ -40,8 +39,8 @@ class GameState:
         self.P_SS, self.P_SP, self.P_PP ,self.sigma = self.dis()
         
     def dis(self):
-        dis_SU = np.random.uniform(low=0, high=self.PN_dimension, size=(self.SU_num))
-        dis_PU = np.random.uniform(low=0, high=self.SN_diemension, size=(self.PU_num))
+        dis_SU = np.random.uniform(low=0, high=self.SN_diemension, size=(self.SU_num))
+        dis_PU = np.random.uniform(low=0, high=self.PN_dimension, size=(self.PU_num))
         
         ang_SU = np.random.uniform(low=0, high=360, size=(self.SU_num))
         ang_PU = np.random.uniform(low=0, high=360, size=(self.PU_num))
@@ -76,9 +75,6 @@ class GameState:
             for p in range(self.PU_num):
                 sigma[i] += P_SP[i][p] * self.PU_powers[0]
             sigma[i] /= self.noise
-        print('P_SP: {}'.format(P_SP))
-        print('P_SS: {}'.format(P_SS))
-        print('P_PP: {}'.format(P_PP))
         return P_SS, P_SP, P_PP ,sigma
 
     def cal_dis(self, dis_SU=None, ang_SU=None, dis_PU=None, ang_PU=None, S_1=None, S_2=None, P=None):
@@ -116,24 +112,20 @@ class GameState:
             self.SU_power_test[i] = self.SU_powers[random.randint(0, self.length_SU_powers-1)]
         for i in range(self.PU_num):
             self.PU_power_test[i] = self.PU_powers[random.randint(0, self.length_PU_powers-1)]    
-        
-        # self.p_1_test = self.P_1[random.randint(0,self.length_P_1-1)]
-        # self.p_2_test = self.P_2[random.randint(0,self.length_P_2-1)]
-    
+      
     def frame_step(self, input_actions, policy, i):
         if i == True:
             if policy == 1:
                 self.PU_power = self.update_p1_v1(self.SU_power, self.PU_power)
             if policy == 2:
                 self.PU_power = self.update_p1_v2(self.PU_power, self.SU_power)
-            # action = np.flatnonzero(input_actions)[0]   # Return indices that are non-zero in the flattened version of a.
             for i, action in enumerate(input_actions):
                 self.SU_power[i] = self.SU_powers[action]
                 
         observation = self.compute_observation(self.PU_power, self.SU_power)
         reward = self.compute_reward(self.PU_power, self.SU_power)
         
-        terminal = (reward==self.SU_num+self.PU_num)
+        terminal = (reward==self.SU_num+3*self.PU_num)
         
         return observation,reward,terminal
 
@@ -143,17 +135,13 @@ class GameState:
                 self.PU_power_test = self.update_p1_v1(self.SU_power_test, self.PU_power_test)
             if policy == 2:
                 self.p_1_test = self.update_p1_v2(self.p_1_test,self.p_2_test)
-            # action = np.flatnonzero(input_actions)[0]
-            # print('PU power: {}'.format(self.PU_power_test))
-            # print('SU power: {}'.format(self.SU_power_test))
-            # print('input action: {}'.format(input_actions))
             for i, action in enumerate(input_actions):
                 self.SU_power_test[i] = self.SU_powers[action]
             
         observation = self.compute_observation(self.PU_power, self.SU_power)
         reward = self.compute_reward(self.PU_power_test, self.SU_power_test)
         
-        terminal = (reward==self.SU_num+self.PU_num)  # 当reward==10时，作为terminal的标志。
+        terminal = (reward==self.SU_num+3*self.PU_num) 
         
         return observation,reward,terminal
     
@@ -172,29 +160,22 @@ class GameState:
     
     def compute_reward(self, PU_power, SU_power):
         PU_success, SU_success = self.compute_SINR(PU_power, SU_power)
-        # reward = self.alpha * sum(PU_success) + (1-self.alpha) * sum(SU_success)
-        reward = sum(PU_success)+sum(SU_success)
-        # if reward == 0.5:
-        #     reward = 0
-        # if reward == 1:
-        #     reward = 10
+        reward = 3*sum(PU_success)+sum(SU_success)
         return reward
     
     def update_p1_v1(self, SU_power, PU_power):
         for p_1 in range(self.PU_num):
-            p_1_n = self.ita_PU*PU_power[p_1]
-            tmp_1 = ((self.P_PP[p_1][p_1])**2)*PU_power[p_1]
+            p_1_n = self.ita_PU/abs(self.h_11)**2
             tmp_2 = 0
             for s in range(self.SU_num):
-                tmp_2 += (self.P_SP[s][p_1]**2)*SU_power[s]
+                tmp_2 += (abs(self.h_21)**2)*SU_power[s]
             for p_2 in range(self.PU_num):
                 if p_1 != p_2:
-                    tmp_2 += (self.P_PP[p_1][p_2]**2)*PU_power[p_1]
+                    tmp_2 += (abs(self.h_21)**2)*PU_power[p_1]
             tmp_2 += self.sigma_sq_1
-            p_1_n = p_1_n / (tmp_1 / tmp_2)
-            tmp_1 = 0
+            p_1_n = p_1_n/tmp_2
+            # tmp_1 = 0
             tmp_2 = 0
-            # []/((abs(self.h_11)**2)/((abs(self.h_21)**2)*y + self.sigma_sq_1))
             v = []
             for ind in range(self.length_PU_powers):
                 v.append(max(p_1_n-self.PU_powers[ind],0))
@@ -215,34 +196,26 @@ class GameState:
         PU_success = np.zeros(self.PU_num)
         SU_success = np.zeros(self.SU_num)
         for p_1 in range(self.PU_num):
-            PU_success[p_1] = (self.P_PP[p_1][p_1]**2)*PU_power[p_1]
-            # print('sorat {}'.format(PU_success[p_1]))
+            PU_success[p_1] = (abs(self.h_11)**2)*PU_power[p_1]
             tmp = 0
             for s in range(self.SU_num):
-                tmp += (self.P_SP[s][p_1]**2)*SU_power[s]
+                tmp += (abs(self.h_12)**2)*SU_power[s]
             for p_2 in range(self.PU_num):
                 if p_1 != p_2:
-                    tmp += (self.P_PP[p_1][p_2]**2)*PU_power[p_2]
-            # tmp += self.sigma_sq_1
-            # print('donimenator: {}'.format(tmp))
+                    tmp += (abs(self.h_21)**2)*PU_power[p_2]
+            tmp += self.sigma_sq_1
             PU_success[p_1] /= tmp
-            # print('result: {}'.format(PU_success[p_1]))
-            # print(PU_success)
+            
             PU_success[p_1] = PU_success[p_1] >= self.ita_PU
         for s_1 in range(self.SU_num):
-            SU_success[s_1] = (self.P_SS[s_1][s_1]**2)*self.SU_power[s_1]
+            SU_success[s_1] = (abs(self.h_22)**2)*self.SU_power[s_1]
             tmp = 0
             for s_2 in range(self.SU_num):
                 if s_1 != s_2:
-                    tmp += (self.P_SS[s_1][s_2]**2)*SU_power[s_2]
+                    tmp += (abs(self.h_21)**2)*SU_power[s_2]
             for p in range(self.PU_num):
-                tmp += (self.P_SP[s_1][p]**2)*PU_power[p]
-            # tmp += self.sigma_sq_2
+                tmp += (abs(self.h_21)**2)*PU_power[p]
+            tmp += self.sigma_sq_2
             SU_success[s_1] /= tmp
-            # print(SU_success)
             SU_success[s_1] = SU_success[s_1] >= self.ita_SU
-            #     ((abs(self.h_21)**2)*y + self.sigma_sq_1)) >= self.ita_1
-            # PU_success[p] = ( (abs(self.P_SP)**2)*x/((abs(self.h_21)**2)*y + self.sigma_sq_1)) >= self.ita_1 
-        # success_1 = ( (abs(self.h_11)**2)*x/((abs(self.h_21)**2)*y + self.sigma_sq_1)) >= self.ita_1
-        # success_2 = ( (abs(self.h_22)**2)*y/((abs(self.h_12)**2)*x + self.sigma_sq_2)) >= self.ita_2
         return PU_success, SU_success
